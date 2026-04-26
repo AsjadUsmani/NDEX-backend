@@ -242,6 +242,26 @@ class GitHubApiError extends Error {
   }
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+
+  const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
+    while (cursor < items.length) {
+      const currentIndex = cursor
+      cursor += 1
+      results[currentIndex] = await mapper(items[currentIndex], currentIndex)
+    }
+  })
+
+  await Promise.all(workers)
+  return results
+}
+
 function toGitHubError(error: unknown): GitHubApiError {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<{ message?: string }>
@@ -412,8 +432,10 @@ export class GitHubService {
       })
 
       const commits = response.data
-      const detailedCommits = await Promise.all(
-        commits.slice(0, 10).map(async commit => {
+      const detailedCommits = await mapWithConcurrency(
+        commits,
+        6,
+        async commit => {
           const detailResponse = await axios.get<GitHubCommitDetail>(
             `${GITHUB_API}/repos/${owner}/${repo}/commits/${commit.sha}`,
             { headers: getHeaders() },
@@ -436,7 +458,7 @@ export class GitHubService {
             deletions: detail.stats?.deletions ?? 0,
             url: detail.html_url,
           }
-        }),
+        },
       )
 
       return commits.map((commit, index) => {
@@ -559,12 +581,12 @@ export class GitHubService {
   }
 
   async getFileContent(owner: string, repo: string, path: string, branch?: string): Promise<string | null> {
-    try {
+    const fetchContent = async (ref?: string): Promise<string | null> => {
       const response = await axios.get<GitHubContentResponse>(
         `${GITHUB_API}/repos/${owner}/${repo}/contents/${path}`,
         {
           headers: getHeaders(),
-          params: branch ? { ref: branch } : undefined,
+          params: ref ? { ref } : undefined,
           timeout: REQUEST_TIMEOUT_MS,
         },
       )
@@ -580,8 +602,23 @@ export class GitHubService {
       }
 
       return content
+    }
+
+    try {
+      return await fetchContent(branch)
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.status === 404) {
+        if (branch) {
+          try {
+            return await fetchContent()
+          } catch (fallbackError) {
+            if (axios.isAxiosError(fallbackError) && fallbackError.response?.status === 404) {
+              return null
+            }
+            mapGithubError(fallbackError)
+          }
+        }
+
         return null
       }
       mapGithubError(error)
