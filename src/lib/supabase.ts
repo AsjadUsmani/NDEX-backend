@@ -25,6 +25,8 @@ export type Database = {
           id: string; user_id: string; github_url: string; owner: string;
           repo_name: string; description: string | null; stars: number;
           forks: number; language: string | null; is_private: boolean;
+          file_tree: any[]; commits: any[]; branches: any[]; 
+          contributors: any[]; languages_data: Record<string, any>;
           last_analyzed: string | null; created_at: string;
         }
         Insert: Omit<Database['public']['Tables']['repositories']['Row'], 'id'|'created_at'>

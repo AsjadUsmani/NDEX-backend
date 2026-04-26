@@ -1,10 +1,11 @@
-import { Router, type Request, type Response } from 'express'
+import { Router, type Response } from 'express'
 import { srsService, type GeneratedSRS } from '../services/srsService'
+import { requireAuth, AuthRequest } from '../middleware/auth'
+import { supabase } from '../lib/supabase'
 
 const router = Router()
-const documentStore = new Map<string, GeneratedSRS>()
 
-// ─── Markdown export helper ───────────────────────────────────────────────────
+// ─── Markdown export helper (unchanged) ───────────────────────────────────────────────────
 
 function toMarkdown(document: GeneratedSRS): string {
   const lines: string[] = []
@@ -104,8 +105,20 @@ function toMarkdown(document: GeneratedSRS): string {
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
+// GET /api/srs/list — fetch saved docs for user
+router.get('/list', requireAuth, async (req: AuthRequest, res: Response) => {
+  const { data, error } = await supabase
+    .from('srs_documents')
+    .select('*')
+    .eq('user_id', req.user!.id)
+    .order('created_at', { ascending: false })
+
+  if (error) return res.status(500).json({ error: error.message })
+  res.json(data)
+})
+
 // GET /api/srs/generate?owner=&repo=  (EventSource-compatible SSE stream)
-router.get('/generate', async (req: Request, res: Response) => {
+router.get('/generate', requireAuth, async (req: AuthRequest, res: Response) => {
   const owner = typeof req.query.owner === 'string' ? req.query.owner.trim() : ''
   const repo  = typeof req.query.repo  === 'string' ? req.query.repo.trim()  : ''
 
@@ -132,7 +145,18 @@ router.get('/generate', async (req: Request, res: Response) => {
       send({ step, progress, label })
     })
 
-    documentStore.set(document.id, document)
+    // Persist to Supabase
+    const { error: dbError } = await supabase
+      .from('srs_documents')
+      .insert({
+        user_id: req.user!.id,
+        title: `${owner}/${repo} SRS`,
+        version: document.version,
+        content: document,
+        status: 'complete'
+      })
+
+    if (dbError) console.error('Failed to save SRS to database:', dbError)
 
     send({
       step: 'complete',
@@ -150,24 +174,49 @@ router.get('/generate', async (req: Request, res: Response) => {
   }
 })
 
-// GET /api/srs/:id  — retrieve stored doc
-router.get('/:id', (req: Request, res: Response) => {
-  const document = documentStore.get(req.params.id)
-  if (!document) {
+// GET /api/srs/:id  — retrieve stored doc from Supabase
+router.get('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
+  const { data, error } = await supabase
+    .from('srs_documents')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('user_id', req.user!.id)
+    .single()
+
+  if (error || !data) {
     res.status(404).json({ error: 'SRS document not found' })
     return
   }
-  res.json(document)
+  res.json(data.content)
+})
+
+// DELETE /api/srs/:id
+router.delete('/:id', requireAuth, async (req: AuthRequest, res: Response) => {
+  const { error } = await supabase
+    .from('srs_documents')
+    .delete()
+    .eq('id', req.params.id)
+    .eq('user_id', req.user!.id)
+
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ success: true })
 })
 
 // POST /api/srs/:id/export/markdown
-router.post('/:id/export/markdown', (req: Request, res: Response) => {
-  const document = documentStore.get(req.params.id)
-  if (!document) {
+router.post('/:id/export/markdown', requireAuth, async (req: AuthRequest, res: Response) => {
+  const { data, error } = await supabase
+    .from('srs_documents')
+    .select('*')
+    .eq('id', req.params.id)
+    .eq('user_id', req.user!.id)
+    .single()
+
+  if (error || !data) {
     res.status(404).json({ error: 'SRS document not found' })
     return
   }
 
+  const document = data.content as GeneratedSRS
   const markdown = toMarkdown(document)
   const fileName = `${document.repoName.replace('/', '-')}-SRS-v${document.version}.md`
 

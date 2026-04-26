@@ -13,6 +13,8 @@ import githubRouter from './routes/github'
 import srsRouter from './routes/srs'
 import codeRouter from './routes/code'
 import settingsRouter from './routes/settings'
+import preferencesRouter from './routes/preferences'
+import reposRouter from './routes/repos'
 
 dotenv.config()
 
@@ -48,11 +50,13 @@ app.get('/health', (_req, res) => {
 })
 
 // Routes
-app.use('/api/auth',     authRouter)
-app.use('/api/github',   githubRouter)
-app.use('/api/srs',      srsRouter)
-app.use('/api/code',     codeRouter)
-app.use('/api/settings', settingsRouter)
+app.use('/api/auth',        authRouter)
+app.use('/api/github',      githubRouter)
+app.use('/api/srs',         srsRouter)
+app.use('/api/code',        codeRouter)
+app.use('/api/settings',    settingsRouter)
+app.use('/api/preferences', preferencesRouter)
+app.use('/api/repos',       reposRouter)
 
 // Error handling — must be last
 app.use(notFound)

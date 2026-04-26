@@ -53,6 +53,13 @@ export const authService = {
       sub: data.user.id, email,
       username: profile!.username, plan: profile!.plan
     })
+
+    // Initialize user preferences
+    await supabase.from('user_preferences').upsert({ user_id: data.user.id, theme: 'dark' }, { onConflict: 'user_id' })
+    
+    // Log activity
+    await supabase.from('activity_log').insert({ user_id: data.user.id, action: 'register', resource_type: 'auth' })
+
     return { user: profile, tokens }
   },
 
@@ -68,6 +75,10 @@ export const authService = {
       sub: data.user.id, email,
       username: profile.username, plan: profile.plan
     })
+
+    // Log activity
+    await supabase.from('activity_log').insert({ user_id: data.user.id, action: 'login', resource_type: 'auth' })
+
     return { user: profile, tokens }
   },
 

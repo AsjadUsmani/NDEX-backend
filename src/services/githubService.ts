@@ -338,6 +338,30 @@ function colorFromLabelName(name: string): string {
   return `hsl(${hue}, 60%, 55%)`
 }
 
+interface GitHubCompareResponse {
+  status: 'ahead' | 'behind' | 'diverged' | 'identical'
+  ahead_by: number
+  behind_by: number
+  total_commits: number
+  files: Array<{
+    filename: string
+    status: 'added' | 'removed' | 'modified' | 'renamed' | 'copied'
+    additions: number
+    deletions: number
+    changes: number
+    patch?: string
+    previous_filename?: string
+  }>
+  commits: Array<{
+    sha: string
+    html_url: string
+    commit: {
+      message: string
+      author: { name: string; email: string; date: string }
+    }
+  }>
+}
+
 export class GitHubService {
   async getRepo(owner: string, repo: string): Promise<RepoMetadata> {
     try {
@@ -725,10 +749,10 @@ export class GitHubService {
   ): Promise<CommitComparison> {
     try {
       const url = `${GITHUB_API}/repos/${owner}/${repo}/compare/${base}...${head}`
-      const response = await axios.get(url, { headers: getHeaders() })
+      const response = await axios.get<GitHubCompareResponse>(url, { headers: getHeaders() })
       const data = response.data
 
-      const files: DiffFile[] = (data.files || []).map((f: any) => ({
+      const files: DiffFile[] = (data.files || []).map((f) => ({
         filename:         f.filename,
         status:           f.status,
         additions:        f.additions,
@@ -738,7 +762,7 @@ export class GitHubService {
         previousFilename: f.previous_filename,
       }))
 
-      const commits: CommitData[] = (data.commits || []).map((c: any) => ({
+      const commits: CommitData[] = (data.commits || []).map((c) => ({
         sha:      c.sha,
         shortSha: c.sha.slice(0, 7),
         message:  c.commit.message.split('\n')[0],
@@ -755,7 +779,7 @@ export class GitHubService {
 
       return {
         baseRef:      base,
-        headRef:      head,
+        headRef: head,
         status:       data.status,
         aheadBy:      data.ahead_by,
         behindBy:     data.behind_by,
