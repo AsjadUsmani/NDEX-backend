@@ -12,7 +12,7 @@ const router = Router()
 
 const COOKIE_OPTIONS = {
   httpOnly: true, secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict' as const, maxAge: 7 * 24 * 60 * 60 * 1000
+  sameSite: 'lax' as const, maxAge: 7 * 24 * 60 * 60 * 1000
 }
 
 // GET /api/auth/check-username

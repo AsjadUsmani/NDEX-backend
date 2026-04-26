@@ -127,4 +127,25 @@ router.get('/issues/:owner/:repo', async (req: Request, res: Response) => {
   }
 })
 
+router.get('/compare/:owner/:repo', async (req: Request, res: Response) => {
+  const { owner, repo } = req.params
+  const { base = 'main', head } = req.query as {
+    base: string; head: string
+  }
+
+  if (!head) {
+    res.status(400).json({ error: 'head ref required' })
+    return
+  }
+
+  try {
+    const comparison = await githubService.compareRefs(
+      owner, repo, base, head
+    )
+    res.json(comparison)
+  } catch (error) {
+    sendGitHubError(res, error)
+  }
+})
+
 export default router

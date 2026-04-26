@@ -211,6 +211,27 @@ export interface IssueStats {
   topLabels: { name: string; count: number; color: string }[]
 }
 
+export interface DiffFile {
+  filename: string
+  status: 'added' | 'removed' | 'modified' | 'renamed' | 'copied'
+  additions: number
+  deletions: number
+  changes: number
+  patch?: string
+  previousFilename?: string
+}
+
+export interface CommitComparison {
+  baseRef: string
+  headRef: string
+  status: 'ahead' | 'behind' | 'diverged' | 'identical'
+  aheadBy: number
+  behindBy: number
+  totalCommits: number
+  files: DiffFile[]
+  commits: CommitData[]
+}
+
 class GitHubApiError extends Error {
   status: number
 
@@ -691,6 +712,57 @@ export class GitHubService {
           isPR: false,
           url: item.html_url,
         }))
+    } catch (error) {
+      mapGithubError(error)
+    }
+  }
+
+  async compareRefs(
+    owner: string,
+    repo: string,
+    base: string,
+    head: string
+  ): Promise<CommitComparison> {
+    try {
+      const url = `${GITHUB_API}/repos/${owner}/${repo}/compare/${base}...${head}`
+      const response = await axios.get(url, { headers: getHeaders() })
+      const data = response.data
+
+      const files: DiffFile[] = (data.files || []).map((f: any) => ({
+        filename:         f.filename,
+        status:           f.status,
+        additions:        f.additions,
+        deletions:        f.deletions,
+        changes:          f.changes,
+        patch:            f.patch || '',
+        previousFilename: f.previous_filename,
+      }))
+
+      const commits: CommitData[] = (data.commits || []).map((c: any) => ({
+        sha:      c.sha,
+        shortSha: c.sha.slice(0, 7),
+        message:  c.commit.message.split('\n')[0],
+        author: {
+          name:  c.commit.author.name,
+          email: c.commit.author.email,
+          date:  c.commit.author.date,
+        },
+        filesChanged: 0,
+        additions:    0,
+        deletions:    0,
+        url:          c.html_url,
+      }))
+
+      return {
+        baseRef:      base,
+        headRef:      head,
+        status:       data.status,
+        aheadBy:      data.ahead_by,
+        behindBy:     data.behind_by,
+        totalCommits: data.total_commits,
+        files,
+        commits,
+      }
     } catch (error) {
       mapGithubError(error)
     }
