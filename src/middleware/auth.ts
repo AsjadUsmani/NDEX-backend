@@ -25,7 +25,7 @@ export const requireAuth = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization
-    const cookieToken = req.cookies?.ndex_token
+    const cookieToken = req.cookies?.ndex_token || req.cookies?.auth_token
 
     const token = authHeader?.startsWith('Bearer ')
       ? authHeader.slice(7)

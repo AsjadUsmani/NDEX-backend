@@ -130,7 +130,6 @@ router.get('/generate', requireAuth, async (req: AuthRequest, res: Response) => 
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache, no-transform')
   res.setHeader('Connection', 'keep-alive')
-  res.setHeader('Access-Control-Allow-Origin', '*')
   res.flushHeaders()
 
   const send = (payload: Record<string, unknown>): void => {

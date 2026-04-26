@@ -60,7 +60,7 @@ export class AIService {
           model: this.getModel(),
           messages,
           temperature: 0.3,
-          max_tokens: 2048,
+          max_tokens: 4096,
         },
         {
           headers: {

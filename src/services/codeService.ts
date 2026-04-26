@@ -560,47 +560,51 @@ Return ONLY this JSON structure (no markdown, no backticks):
     {
       "type": "uml-class",
       "title": "Class Diagram",
-      "description": "Classes and relationships in this code",
-      "mermaidCode": "classDiagram\\n  class Example {\\n    +method()\\n  }"
+      "description": "Classes and relationships",
+      "mermaidCode": "classDiagram\\n  class MyClass {\\n    +String myProp\\n    +myMethod()\\n  }"
     },
     {
       "type": "uml-sequence",
       "title": "Sequence Diagram",
-      "description": "Main call flow",
-      "mermaidCode": "sequenceDiagram\\n  ..."
+      "description": "Main execution flow",
+      "mermaidCode": "sequenceDiagram\\n  participant A\\n  participant B\\n  A->>B: Call\\n  B-->>A: Return"
     },
     {
       "type": "dependency",
       "title": "Dependency Map",
-      "description": "Module and import dependencies",
-      "mermaidCode": "graph LR\\n  ..."
+      "description": "Module and import map",
+      "mermaidCode": "graph LR\\n  A[\\"Module A\\"] --> B[\\"Module B\\"]"
     },
     {
       "type": "flowchart",
       "title": "Logic Flowchart",
-      "description": "Main logic branches",
-      "mermaidCode": "flowchart TD\\n  ..."
+      "description": "Decision and branch logic",
+      "mermaidCode": "flowchart TD\\n  A{\\"Start\\"} --> B[\\"Process\\"]"
     },
     {
       "type": "component",
       "title": "Component Diagram",
-      "description": "Major code sections",
-      "mermaidCode": "graph TB\\n  ..."
+      "description": "Architecture overview",
+      "mermaidCode": "graph TB\\n  subgraph \\"Sub\\"\\n    A[\\"Comp A\\"]\\n  end"
     }
   ]
 }
 
 CRITICAL RULES for mermaidCode:
-- Use \\n for newlines inside JSON strings
-- Escape all special characters for valid JSON
-- Keep each diagram focused and readable (max 12 nodes)
-- Generate ALL 5 diagram types regardless of code type
-- If a type does not naturally apply, make a simplified relevant version
-- Generate 3-6 issues and 3-5 suggestions specific to THIS code`
+- Use \\n for newlines inside JSON strings.
+- Escape ALL quotes inside Mermaid strings (e.g. \\"Label\\").
+- ALWAYS quote node labels and class names if they contain special characters or spaces.
+- For graph/flowchart, ALWAYS use the syntax: NodeID[\\"Label Text\\"].
+- For classDiagram, avoid using generic types like List<String> unless fully escaped or simplified.
+- Keep diagrams very focused (max 12-15 nodes).
+- Do NOT use 'subgraph' unless it's for the 'component' diagram.
+- Ensure ALL 5 diagram types are present in the response.
+- If a diagram type isn't relevant, generate a simplified "High Level Overview" for that type.`
 
-    const systemPrompt = `You are an expert code analyzer and software architect.
-Generate accurate Mermaid diagrams and code analysis.
-Respond ONLY with valid JSON. No markdown fences. No explanation.`
+    const systemPrompt = `You are a world-class software architect and Mermaid.js expert.
+Your goal is to generate valid, syntactically correct Mermaid code for 5 different diagram types.
+You must return valid JSON that can be parsed by JSON.parse().
+No markdown fences. No preamble. No postamble.`
 
     const result = await withRetry(() =>
       aiService.generateJSON<Record<string, unknown>>(prompt, systemPrompt)
